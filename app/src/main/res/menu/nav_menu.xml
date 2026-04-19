@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/nav_home"     android:title="Home"     android:icon="@drawable/ic_home"/>
+    <item android:id="@+id/nav_chat"     android:title="Chat"     android:icon="@drawable/ic_home"/>
+    <item android:id="@+id/nav_code"     android:title="Code"     android:icon="@drawable/ic_home"/>
+    <item android:id="@+id/nav_memes"    android:title="Memes"    android:icon="@drawable/ic_home"/>
+    <item android:id="@+id/nav_qa"       android:title="Q&amp;A"  android:icon="@drawable/ic_home"/>
+    <item android:id="@+id/nav_repo"     android:title="Repos"    android:icon="@drawable/ic_home"/>
+    <item android:id="@+id/nav_settings" android:title="Settings" android:icon="@drawable/ic_home"/>
+</menu>
