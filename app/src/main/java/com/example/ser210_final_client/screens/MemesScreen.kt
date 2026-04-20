@@ -15,8 +15,12 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.room.Room
 import com.example.ser210_final_client.R
 import com.example.ser210_final_client.data.api.ApiInterface
+import com.example.ser210_final_client.data.database.AppDatabase
+import com.example.ser210_final_client.data.database.Post
+import com.example.ser210_final_client.data.database.Response
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -45,6 +49,13 @@ class MemesScreen : Fragment() {
     private lateinit var postComposerContainer: LinearLayout
     private lateinit var feedContainer: LinearLayout
     private var memeFileNames: List<String> = emptyList()
+    private val db by lazy {
+        Room.databaseBuilder(
+            requireContext().applicationContext,
+            AppDatabase::class.java,
+            "code_gram_db"
+        ).build()
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -62,6 +73,7 @@ class MemesScreen : Fragment() {
         memeFileNames = loadMemeFileNames()
         setupMemePicker()
         fetchApiUsernames()
+        loadMemesFromDatabase()
 
         postButton.setOnClickListener {
             postComposerContainer.visibility = View.VISIBLE
@@ -91,18 +103,64 @@ class MemesScreen : Fragment() {
             }
 
             val newPost = MemePost(
-                id = nextPostId++,
+                id = 0,
                 username = username,
                 memeFileName = memeFileNames[selectedIndex],
                 caption = captionInput.text.toString().trim()
             )
-            memePosts.add(0, newPost)
+            saveMemePost(newPost)
+        }
+
+        return view
+    }
+
+    private fun loadMemesFromDatabase() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val loadedPosts = withContext(Dispatchers.IO) {
+                val allPosts = db.postDao().getAllPosts()
+                    .filter { it.type == "meme" }
+                    .sortedByDescending { it.id }
+
+                allPosts.map { post ->
+                    val responses = db.postDao().getResponsesForPost(post.id).map { it.content }.toMutableList()
+                    MemePost(
+                        id = post.id,
+                        username = post.userId,
+                        memeFileName = post.imageUrl ?: "",
+                        caption = post.content,
+                        responses = responses
+                    )
+                }.filter { it.memeFileName.isNotBlank() }
+            }
+
+            memePosts.clear()
+            memePosts.addAll(loadedPosts)
+            nextPostId = (memePosts.maxOfOrNull { it.id } ?: 0) + 1
+            renderPosts()
+        }
+    }
+
+    private fun saveMemePost(post: MemePost) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val insertedId = withContext(Dispatchers.IO) {
+                db.postDao().insertPost(
+                    Post(
+                        userId = post.username,
+                        content = post.caption,
+                        type = "meme",
+                        imageUrl = post.memeFileName
+                    )
+                ).toInt()
+            }
+
+            memePosts.add(
+                0,
+                post.copy(id = insertedId)
+            )
             clearComposer()
             postComposerContainer.visibility = View.GONE
             renderPosts()
         }
-
-        return view
     }
 
     private fun clearComposer() {
@@ -160,10 +218,14 @@ class MemesScreen : Fragment() {
             captionText.text = post.caption
             captionText.visibility = if (post.caption.isBlank()) View.GONE else View.VISIBLE
 
-            val memeBitmap = requireContext().assets.open("memes/${post.memeFileName}").use { stream ->
-                BitmapFactory.decodeStream(stream)
+            try {
+                val memeBitmap = requireContext().assets.open("memes/${post.memeFileName}").use { stream ->
+                    BitmapFactory.decodeStream(stream)
+                }
+                imageView.setImageBitmap(memeBitmap)
+            } catch (_: Exception) {
+                imageView.setImageResource(R.drawable.dashboard_picture)
             }
-            imageView.setImageBitmap(memeBitmap)
 
             responsesSection.visibility = if (post.responsesExpanded) View.VISIBLE else View.GONE
             toggleButton.text = if (post.responsesExpanded) "Hide Responses ▲" else "See Responses ▼"
@@ -177,9 +239,20 @@ class MemesScreen : Fragment() {
             sendButton.setOnClickListener {
                 val text = responseInput.text.toString()
                 if (text.isBlank()) return@setOnClickListener
-                post.responses.add(text)
-                responseInput.setText("")
-                renderPosts()
+                viewLifecycleOwner.lifecycleScope.launch {
+                    withContext(Dispatchers.IO) {
+                        db.postDao().insertResponse(
+                            Response(
+                                postId = post.id,
+                                userId = fallbackUser,
+                                content = text
+                            )
+                        )
+                    }
+                    post.responses.add(text)
+                    responseInput.setText("")
+                    renderPosts()
+                }
             }
 
             feedContainer.addView(postView)

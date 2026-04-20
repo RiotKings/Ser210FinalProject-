@@ -8,7 +8,7 @@ import androidx.room.Query
 interface PostDao {
 
     @Insert
-    suspend fun insertPost(post: Post)
+    suspend fun insertPost(post: Post): Long
 
     @Query("SELECT * FROM posts")
     suspend fun getAllPosts(): List<Post>
