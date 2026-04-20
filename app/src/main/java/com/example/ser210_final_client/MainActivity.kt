@@ -1,8 +1,10 @@
 package com.example.ser210_final_client
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
+import com.example.ser210_final_client.screens.SplashActivity
 import com.example.ser210_final_client.screens.ChatScreen
 import com.example.ser210_final_client.screens.CodeScreen
 import com.example.ser210_final_client.screens.HomeScreen
@@ -18,6 +20,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (!intent.getBooleanExtra("from_auth_flow", false)) {
+            startActivity(Intent(this, SplashActivity::class.java))
+            finish()
+            return
+        }
+
         setContentView(R.layout.activity_main)
 
         drawerLayout = findViewById(R.id.drawerLayout)

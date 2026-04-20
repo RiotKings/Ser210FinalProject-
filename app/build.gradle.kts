@@ -6,9 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.ser210_final_client"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.ser210_final_client"
@@ -60,10 +58,9 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
 
-    //Room
-    implementation("androidx.room:room-runtime:${rootProject.extra["room_version"]}")
-    ksp("androidx.room:room-compiler:${rootProject.extra["room_version"]}")
-    implementation("androidx.room:room-ktx:${rootProject.extra["room_version"]}")
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.room.ktx)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

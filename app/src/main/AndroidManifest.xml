@@ -17,19 +17,27 @@
         <activity
             android:name=".screens.SplashActivity"
             android:exported="true"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+            android:theme="@style/Theme.Ser210finalclient">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- MainActivity no longer has the intent-filter -->
+        <activity
+            android:name=".screens.SignupActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Ser210finalclient" />
+
+        <activity
+            android:name=".screens.LoginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Ser210finalclient" />
+
         <activity
             android:name=".MainActivity"
-            android:exported="false"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-        </activity>
+            android:exported="true"
+            android:theme="@style/Theme.Ser210finalclient" />
 
     </application>
 

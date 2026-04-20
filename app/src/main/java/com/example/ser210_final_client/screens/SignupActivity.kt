@@ -8,14 +8,14 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.ser210_final_client.MainActivity
 import com.example.ser210_final_client.R
 
-class LoginActivity : AppCompatActivity() {
+class SignupActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_login)
+        setContentView(R.layout.activity_signup)
 
-        val confirmButton = findViewById<Button>(R.id.loginConfirmButton)
-        val signUpText = findViewById<TextView>(R.id.loginSignUpText)
+        val confirmButton = findViewById<Button>(R.id.signupConfirmButton)
+        val loginText = findViewById<TextView>(R.id.signupLoginText)
 
         confirmButton.setOnClickListener {
             getSharedPreferences("code_gram_session", MODE_PRIVATE)
@@ -24,11 +24,11 @@ class LoginActivity : AppCompatActivity() {
                 .apply()
 
             startActivity(Intent(this, MainActivity::class.java).putExtra("from_auth_flow", true))
-            finish()
+            finishAffinity()
         }
 
-        signUpText.setOnClickListener {
-            startActivity(Intent(this, SignupActivity::class.java))
+        loginText.setOnClickListener {
+            finish()
         }
     }
 }
