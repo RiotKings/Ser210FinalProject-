@@ -1,4 +1,4 @@
-package com.example.ser210_final_client.data.repository
+package com.example.ser210_final_client.data.database
 
 import com.example.ser210_final_client.data.database.Post
 import com.example.ser210_final_client.data.database.PostDao
