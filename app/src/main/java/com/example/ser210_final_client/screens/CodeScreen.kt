@@ -1,17 +1,24 @@
 package com.example.ser210_final_client.screens
 
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.TextView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
-import com.example.ser210_final_client.R
 import com.example.ser210_final_client.data.api.ApiInterface
 import com.example.ser210_final_client.data.database.AppDatabase
 import com.example.ser210_final_client.data.database.Post
@@ -23,10 +30,6 @@ import kotlin.random.Random
 
 class CodeScreen : Fragment() {
 
-    private lateinit var container: LinearLayout
-    private lateinit var input: EditText
-    private lateinit var postBtn: Button
-
     private val db by lazy {
         Room.databaseBuilder(
             requireContext().applicationContext,
@@ -35,26 +38,67 @@ class CodeScreen : Fragment() {
         ).build()
     }
 
-    private val codePosts = mutableListOf<Post>()
-    private val usernames = mutableListOf<String>()
-
     override fun onCreateView(
-        inflater: LayoutInflater,
-        containerView: ViewGroup?,
+        inflater: android.view.LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val view = inflater.inflate(R.layout.fragment_code, containerView, false)
+        return ComposeView(requireContext()).apply {
+            setContent {
+                CodeScreenUI(db, viewLifecycleOwner)
+            }
+        }
+    }
+}
 
-        container = view.findViewById(R.id.codeContainer)
-        input = view.findViewById(R.id.codeInput)
-        postBtn = view.findViewById(R.id.postCodeBtn)
+@Composable
+fun CodeScreenUI(db: AppDatabase, lifecycleOwner: LifecycleOwner) {
 
-        loadUsers()
-        loadPosts()
+    var posts by remember { mutableStateOf(listOf<Post>()) }
+    var input by remember { mutableStateOf("") }
+    var usernames by remember { mutableStateOf(listOf<String>()) }
 
-        postBtn.setOnClickListener {
-            val text = input.text.toString()
-            if (text.isBlank()) return@setOnClickListener
+    LaunchedEffect(Unit) {
+        val users = withContext(Dispatchers.IO) {
+            try {
+                ApiInterface.create().getUsers().body()?.results ?: emptyList()
+            } catch (_: Exception) {
+                emptyList()
+            }
+        }
+        usernames = users.map { it.login.username }
+    }
+
+    LaunchedEffect(Unit) {
+        val data = withContext(Dispatchers.IO) {
+            db.postDao().getAllPosts()
+                .filter { it.type == "code" }
+                .sortedByDescending { it.id }
+        }
+        posts = data
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .padding(16.dp)
+    ) {
+
+        Text("Code Feed", color = Color.White, fontSize = 20.sp)
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        TextField(
+            value = input,
+            onValueChange = { input = it },
+            placeholder = { Text("Enter code...") }
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Button(onClick = {
+            if (input.isBlank()) return@Button
 
             val username = if (usernames.isNotEmpty()) {
                 usernames[Random.nextInt(usernames.size)]
@@ -62,117 +106,112 @@ class CodeScreen : Fragment() {
                 "user_001"
             }
 
-            lifecycleScope.launch {
+            lifecycleOwner.lifecycleScope.launch {
                 val id = withContext(Dispatchers.IO) {
                     db.postDao().insertPost(
                         Post(
                             userId = username,
-                            content = text,
+                            content = input,
                             type = "code",
                             imageUrl = null
                         )
                     ).toInt()
                 }
 
-                val newPost = Post(id, username, text, "code", null)
-                codePosts.add(0, newPost)
+                posts = listOf(
+                    Post(id, username, input, "code", null)
+                ) + posts
 
-                renderPosts()
-                input.setText("")
+                input = ""
             }
+
+        }) {
+            Text("Post Code")
         }
 
-        return view
-    }
+        Spacer(modifier = Modifier.height(20.dp))
 
-    private fun loadUsers() {
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                try {
-                    ApiInterface.create().getUsers().body()?.results ?: emptyList()
-                } catch (_: Exception) {
-                    emptyList()
-                }
+        LazyColumn {
+            items(posts) { post ->
+                CodePostItem(post, db, lifecycleOwner)
             }
-            usernames.clear()
-            usernames.addAll(result.map { it.login.username })
         }
     }
+}
 
-    private fun loadPosts() {
-        lifecycleScope.launch {
-            val posts = withContext(Dispatchers.IO) {
-                db.postDao().getAllPosts()
-                    .filter { it.type == "code" }
-                    .sortedByDescending { it.id }
-            }
-            codePosts.clear()
-            codePosts.addAll(posts)
-            renderPosts()
+@Composable
+fun CodePostItem(post: Post, db: AppDatabase, lifecycleOwner: LifecycleOwner) {
+
+    var responses by remember { mutableStateOf(listOf<Response>()) }
+    var expanded by remember { mutableStateOf(false) }
+    var input by remember { mutableStateOf("") }
+
+    LaunchedEffect(post.id) {
+        responses = withContext(Dispatchers.IO) {
+            db.postDao().getResponsesForPost(post.id)
         }
     }
 
-    private fun renderPosts() {
-        container.removeAllViews()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+            .background(Color(0xFF6D6D6D), RoundedCornerShape(16.dp))
+            .padding(12.dp)
+    ) {
 
-        for (post in codePosts) {
-            val postView = layoutInflater.inflate(R.layout.item_code_post, container, false)
+        Text(post.userId, color = Color.White, fontSize = 14.sp)
 
-            val userText = postView.findViewById<TextView>(R.id.codeUser)
-            val contentText = postView.findViewById<TextView>(R.id.codeContent)
-            val toggleBtn = postView.findViewById<Button>(R.id.toggleResponsesBtn)
-            val responseContainer = postView.findViewById<LinearLayout>(R.id.responseContainer)
-            val responseInput = postView.findViewById<EditText>(R.id.responseInput)
-            val sendBtn = postView.findViewById<Button>(R.id.sendResponseBtn)
+        Spacer(modifier = Modifier.height(6.dp))
 
-            userText.text = post.userId
-            contentText.text = post.content
+        Text(post.content, color = Color.White, fontSize = 16.sp)
 
-            toggleBtn.setOnClickListener {
-                if (responseContainer.visibility == View.GONE) {
-                    responseContainer.visibility = View.VISIBLE
-                    loadResponses(post.id, responseContainer)
-                } else {
-                    responseContainer.visibility = View.GONE
-                }
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Button(onClick = { expanded = !expanded }) {
+            Text(if (expanded) "Hide Responses" else "See Responses")
+        }
+
+        if (expanded) {
+
+            responses.forEach {
+                Text(it.content, color = Color.LightGray, fontSize = 14.sp)
             }
 
-            sendBtn.setOnClickListener {
-                val text = responseInput.text.toString()
-                if (text.isBlank()) return@setOnClickListener
+            Spacer(modifier = Modifier.height(6.dp))
 
-                lifecycleScope.launch {
+            TextField(
+                value = input,
+                onValueChange = { input = it },
+                placeholder = { Text("Reply...") }
+            )
+
+            Button(onClick = {
+                if (input.isBlank()) return@Button
+
+                lifecycleOwner.lifecycleScope.launch {
+
                     withContext(Dispatchers.IO) {
                         db.postDao().insertResponse(
                             Response(
                                 postId = post.id,
                                 userId = "user_001",
-                                content = text
+                                content = input
                             )
                         )
                     }
-                    responseInput.setText("")
-                    loadResponses(post.id, responseContainer)
+
+                    responses = responses + Response(
+                        postId = post.id,
+                        userId = "user_001",
+                        content = input
+                    )
+
+                    input = ""
                 }
-            }
 
-            container.addView(postView)
-        }
-    }
-
-    private fun loadResponses(postId: Int, container: LinearLayout) {
-        lifecycleScope.launch {
-            val responses = withContext(Dispatchers.IO) {
-                db.postDao().getResponsesForPost(postId)
-            }
-
-            container.removeAllViews()
-
-            for (res in responses) {
-                val tv = TextView(requireContext())
-                tv.text = res.content
-                tv.setTextColor(resources.getColor(android.R.color.darker_gray, null))
-                container.addView(tv)
+            }) {
+                Text("Send")
             }
         }
     }
