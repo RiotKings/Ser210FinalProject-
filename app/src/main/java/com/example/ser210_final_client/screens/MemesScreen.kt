@@ -15,16 +15,14 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import androidx.room.Room
 import com.example.ser210_final_client.R
-import com.example.ser210_final_client.data.api.ApiInterface
 import com.example.ser210_final_client.data.database.AppDatabase
 import com.example.ser210_final_client.data.database.Post
 import com.example.ser210_final_client.data.database.Response
+import com.example.ser210_final_client.util.SessionPrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.random.Random
 
 class MemesScreen : Fragment() {
     private data class MemePost(
@@ -38,8 +36,6 @@ class MemesScreen : Fragment() {
 
     private var nextPostId = 1
     private val memePosts = mutableListOf<MemePost>()
-    private val apiUsernames = mutableListOf<String>()
-    private val fallbackUser = "user_001"
 
     private lateinit var memeSpinner: Spinner
     private lateinit var captionInput: EditText
@@ -49,13 +45,7 @@ class MemesScreen : Fragment() {
     private lateinit var postComposerContainer: LinearLayout
     private lateinit var feedContainer: LinearLayout
     private var memeFileNames: List<String> = emptyList()
-    private val db by lazy {
-        Room.databaseBuilder(
-            requireContext().applicationContext,
-            AppDatabase::class.java,
-            "code_gram_db"
-        ).build()
-    }
+    private val db by lazy { AppDatabase.getInstance(requireContext().applicationContext) }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -72,7 +62,6 @@ class MemesScreen : Fragment() {
 
         memeFileNames = loadMemeFileNames()
         setupMemePicker()
-        fetchApiUsernames()
         loadMemesFromDatabase()
 
         postButton.setOnClickListener {
@@ -96,11 +85,7 @@ class MemesScreen : Fragment() {
                 return@setOnClickListener
             }
 
-            val username = if (apiUsernames.isNotEmpty()) {
-                apiUsernames[Random.nextInt(apiUsernames.size)]
-            } else {
-                fallbackUser
-            }
+            val username = SessionPrefs.displayName(requireContext())
 
             val newPost = MemePost(
                 id = 0,
@@ -188,19 +173,6 @@ class MemesScreen : Fragment() {
         memeSpinner.adapter = adapter
     }
 
-    private fun fetchApiUsernames() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                val response = withContext(Dispatchers.IO) { ApiInterface.create().getUsers() }
-                val fetched = response.body()?.results?.map { it.login.username }?.filter { it.isNotBlank() } ?: emptyList()
-                apiUsernames.clear()
-                apiUsernames.addAll(fetched)
-            } catch (_: Exception) {
-                apiUsernames.clear()
-            }
-        }
-    }
-
     private fun renderPosts() {
         feedContainer.removeAllViews()
         for (post in memePosts) {
@@ -244,7 +216,7 @@ class MemesScreen : Fragment() {
                         db.postDao().insertResponse(
                             Response(
                                 postId = post.id,
-                                userId = fallbackUser,
+                                userId = SessionPrefs.displayName(requireContext()),
                                 content = text
                             )
                         )
