@@ -50,6 +50,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
     implementation("androidx.activity:activity-compose:1.8.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    implementation("io.coil-kt:coil:2.6.0")
 
     // Retrofit
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

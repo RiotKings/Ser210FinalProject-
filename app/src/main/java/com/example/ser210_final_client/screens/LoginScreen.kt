@@ -48,9 +48,17 @@ class LoginActivity : AppCompatActivity() {
                     return@launch
                 }
 
+                // Find the index of the logged in user
+                val allUsers = ApiInterface.create().getUsers().body()?.results.orEmpty()
+                val userIndex = allUsers.indexOfFirst {
+                    it.login.username.equals(username, ignoreCase = true)
+                }.coerceAtLeast(0)
+
                 getSharedPreferences(SessionPrefs.PREFS_NAME, MODE_PRIVATE).edit()
                     .putBoolean(SessionPrefs.KEY_LOGGED_IN, true)
                     .putString(SessionPrefs.KEY_DISPLAY_NAME, authorLabel)
+                    .putInt(SessionPrefs.KEY_USER_INDEX, userIndex)
+                    .remove(SessionPrefs.KEY_PROFILE_IMAGE) // clear old cached image
                     .apply()
 
                 startActivity(Intent(this@LoginActivity, MainActivity::class.java).putExtra("from_auth_flow", true))
