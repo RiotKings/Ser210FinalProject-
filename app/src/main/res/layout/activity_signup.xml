@@ -31,11 +31,12 @@
             android:textSize="28sp" />
 
         <EditText
+            android:id="@+id/signupUsernameInput"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="28dp"
             android:background="#666666"
-            android:hint="Username/Email"
+            android:hint="Username"
             android:imeOptions="actionNext"
             android:inputType="textEmailAddress"
             android:paddingStart="12dp"
@@ -44,6 +45,7 @@
             android:textColorHint="@color/secondary_text" />
 
         <EditText
+            android:id="@+id/signupPasswordInput"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="12dp"
@@ -57,6 +59,7 @@
             android:textColorHint="@color/secondary_text" />
 
         <EditText
+            android:id="@+id/signupPasswordConfirmInput"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="12dp"

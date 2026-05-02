@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
-import androidx.room.Room
 import com.example.ser210_final_client.data.api.ApiInterface
 import com.example.ser210_final_client.data.database.AppDatabase
 import com.example.ser210_final_client.data.database.Post
@@ -30,13 +29,7 @@ import kotlin.random.Random
 
 class CodeScreen : Fragment() {
 
-    private val db by lazy {
-        Room.databaseBuilder(
-            requireContext().applicationContext,
-            AppDatabase::class.java,
-            "code_gram_db"
-        ).build()
-    }
+    private val db by lazy { AppDatabase.getInstance(requireContext().applicationContext) }
 
     override fun onCreateView(
         inflater: android.view.LayoutInflater,

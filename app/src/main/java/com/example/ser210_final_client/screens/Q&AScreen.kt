@@ -10,16 +10,14 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import androidx.room.Room
 import com.example.ser210_final_client.R
-import com.example.ser210_final_client.data.api.ApiInterface
 import com.example.ser210_final_client.data.database.AppDatabase
 import com.example.ser210_final_client.data.database.Post
 import com.example.ser210_final_client.data.database.Response
+import com.example.ser210_final_client.util.SessionPrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.random.Random
 
 class Q_AScreen : Fragment() {
     private data class QuestionPost(
@@ -31,8 +29,6 @@ class Q_AScreen : Fragment() {
     )
 
     private val questionPosts = mutableListOf<QuestionPost>()
-    private val apiUsernames = mutableListOf<String>()
-    private val fallbackUser = "user_001"
 
     private lateinit var postQuestionButton: Button
     private lateinit var postQuestionNowButton: Button
@@ -41,13 +37,7 @@ class Q_AScreen : Fragment() {
     private lateinit var composerContainer: LinearLayout
     private lateinit var feedContainer: LinearLayout
 
-    private val db by lazy {
-        Room.databaseBuilder(
-            requireContext().applicationContext,
-            AppDatabase::class.java,
-            "code_gram_db"
-        ).build()
-    }
+    private val db by lazy { AppDatabase.getInstance(requireContext().applicationContext) }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -61,7 +51,6 @@ class Q_AScreen : Fragment() {
         composerContainer = view.findViewById(R.id.postQuestionComposerContainer)
         feedContainer = view.findViewById(R.id.questionFeedContainer)
 
-        fetchApiUsernames()
         loadQuestionsFromDatabase()
 
         postQuestionButton.setOnClickListener {
@@ -77,13 +66,7 @@ class Q_AScreen : Fragment() {
             val text = questionInput.text.toString().trim()
             if (text.isBlank()) return@setOnClickListener
 
-            val username = if (apiUsernames.isNotEmpty()) {
-                apiUsernames[Random.nextInt(apiUsernames.size)]
-            } else {
-                fallbackUser
-            }
-
-            saveQuestionPost(username, text)
+            saveQuestionPost(SessionPrefs.displayName(requireContext()), text)
         }
 
         return view
@@ -91,19 +74,6 @@ class Q_AScreen : Fragment() {
 
     private fun clearComposer() {
         questionInput.setText("")
-    }
-
-    private fun fetchApiUsernames() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                val response = withContext(Dispatchers.IO) { ApiInterface.create().getUsers() }
-                val fetched = response.body()?.results?.map { it.login.username }?.filter { it.isNotBlank() } ?: emptyList()
-                apiUsernames.clear()
-                apiUsernames.addAll(fetched)
-            } catch (_: Exception) {
-                apiUsernames.clear()
-            }
-        }
     }
 
     private fun loadQuestionsFromDatabase() {
@@ -182,7 +152,7 @@ class Q_AScreen : Fragment() {
                         db.postDao().insertResponse(
                             Response(
                                 postId = post.id,
-                                userId = fallbackUser,
+                                userId = SessionPrefs.displayName(requireContext()),
                                 content = text
                             )
                         )
