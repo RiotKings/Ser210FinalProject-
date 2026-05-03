@@ -8,6 +8,7 @@ import com.example.ser210_final_client.data.database.Response
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.example.ser210_final_client.model.Repo
 
 class MainViewModel(private val db: AppDatabase) : ViewModel() {
 
@@ -83,5 +84,18 @@ class MainViewModel(private val db: AppDatabase) : ViewModel() {
             }
             onDone()
         }
+    }
+    // Holds the list of repos
+    private val _repos = mutableListOf(
+        Repo("my-portfolio", "Personal portfolio website", "https://github.com"),
+        Repo("android-app", "SER210 Final Project client app", "https://github.com")
+    )
+    var repos: List<Repo> = _repos.toList()
+        private set
+
+    fun addRepo(name: String, description: String, githubUrl: String) {
+        if (name.isBlank()) return
+        _repos.add(Repo(name.trim(), description.trim(), githubUrl.trim().ifEmpty { "https://github.com" }))
+        repos = _repos.toList()
     }
 }

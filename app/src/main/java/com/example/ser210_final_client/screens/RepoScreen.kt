@@ -6,6 +6,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,39 +26,46 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
+import com.example.ser210_final_client.data.database.AppDatabase
+import com.example.ser210_final_client.model.MainViewModel
+import com.example.ser210_final_client.model.MainViewModelFactory
 import com.example.ser210_final_client.model.Repo
 
 class RepoScreen : Fragment() {
+
+    private lateinit var viewModel: MainViewModel
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
+        val db = AppDatabase.getInstance(requireContext().applicationContext)
+        viewModel = ViewModelProvider(
+            requireActivity(),
+            MainViewModelFactory(db)
+        )[MainViewModel::class.java]
+
         return ComposeView(requireContext()).apply {
             setContent {
-                RepoScreenContent()
+                RepoScreenContent(viewModel)
             }
         }
     }
 }
 
 @Composable
-fun RepoScreenContent() {
-    val repos = remember {
-        mutableStateListOf(
-            Repo("my-portfolio", "Personal portfolio website", "https://github.com"),
-            Repo("android-app", "SER210 Final Project client app", "https://github.com")
-        )
-    }
-
+fun RepoScreenContent(viewModel: MainViewModel) {
+    var repos by remember { mutableStateOf(viewModel.repos) }
     var showDialog by remember { mutableStateOf(false) }
 
     if (showDialog) {
         CreateRepoDialog(
             onDismiss = { showDialog = false },
             onCreate = { repo ->
-                repos.add(repo)
+                viewModel.addRepo(repo.name, repo.description, repo.githubUrl)
+                repos = viewModel.repos
                 showDialog = false
             }
         )
@@ -65,22 +74,25 @@ fun RepoScreenContent() {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color.Black)
             .padding(16.dp)
     ) {
         Text(
             text = "Code-Gram",
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Black,
+            color = Color(0xFF6A0DAD),
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
         Button(
             onClick = { showDialog = true },
-            modifier = Modifier.fillMaxWidth().height(48.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFF0F0F0),
+                containerColor = Color(0xFFE8D5FF),
                 contentColor = Color.Black
             )
         ) {
@@ -120,14 +132,15 @@ fun RepoCard(repo: Repo) {
             },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F0F0)),
-        elevation = CardDefaults.cardElevation(0.dp)
+        elevation = CardDefaults.cardElevation(0.dp),
+        border = BorderStroke(3.dp, Color(0xFF6A0DAD))
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = repo.name,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = Color(0xFF6A0DAD)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -147,7 +160,7 @@ fun CreateRepoDialog(onDismiss: () -> Unit, onCreate: (Repo) -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Create New Repository") },
+        title = { Text("Create New Repository", color = Color(0xFF6A0DAD)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -184,10 +197,10 @@ fun CreateRepoDialog(onDismiss: () -> Unit, onCreate: (Repo) -> Unit) {
                         )
                     )
                 }
-            }) { Text("Create") }
+            }) { Text("Create", color = Color(0xFF6A0DAD)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = Color(0xFF6A0DAD)) }
         }
     )
 }
