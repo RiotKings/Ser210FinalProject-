@@ -10,6 +10,6 @@ data class Post(
 
     val userId: String,
     val content: String,
-    val type: String, // "question", "code", "meme"
+    val type: String,
     val imageUrl: String? = null
 )
