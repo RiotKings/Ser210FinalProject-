@@ -16,59 +16,53 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.lifecycleScope
-import com.example.ser210_final_client.data.api.ApiInterface
+import androidx.lifecycle.ViewModelProvider
 import com.example.ser210_final_client.data.database.AppDatabase
 import com.example.ser210_final_client.data.database.Post
 import com.example.ser210_final_client.data.database.Response
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlin.random.Random
+import com.example.ser210_final_client.model.MainViewModel
+import com.example.ser210_final_client.model.MainViewModelFactory
+import com.example.ser210_final_client.util.SessionPrefs
 
 class CodeScreen : Fragment() {
 
-    private val db by lazy { AppDatabase.getInstance(requireContext().applicationContext) }
+    private lateinit var viewModel: MainViewModel
 
     override fun onCreateView(
         inflater: android.view.LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
+
+        val db = AppDatabase.getInstance(requireContext().applicationContext)
+
+        viewModel = ViewModelProvider(
+            requireActivity(),
+            MainViewModelFactory(db)
+        )[MainViewModel::class.java]
+
+        viewModel.setUser(
+            SessionPrefs.displayName(requireContext())
+        )
+
         return ComposeView(requireContext()).apply {
             setContent {
-                CodeScreenUI(db, viewLifecycleOwner)
+                CodeScreenUI(viewModel)
             }
         }
     }
 }
 
 @Composable
-fun CodeScreenUI(db: AppDatabase, lifecycleOwner: LifecycleOwner) {
+fun CodeScreenUI(viewModel: MainViewModel) {
 
-    var posts by remember { mutableStateOf(listOf<Post>()) }
+    var posts by remember { mutableStateOf(viewModel.posts) }
     var input by remember { mutableStateOf("") }
-    var usernames by remember { mutableStateOf(listOf<String>()) }
 
     LaunchedEffect(Unit) {
-        val users = withContext(Dispatchers.IO) {
-            try {
-                ApiInterface.create().getUsers().body()?.results ?: emptyList()
-            } catch (_: Exception) {
-                emptyList()
-            }
+        viewModel.loadPosts("code") {
+            posts = viewModel.posts
         }
-        usernames = users.map { it.login.username }
-    }
-
-    LaunchedEffect(Unit) {
-        val data = withContext(Dispatchers.IO) {
-            db.postDao().getAllPosts()
-                .filter { it.type == "code" }
-                .sortedByDescending { it.id }
-        }
-        posts = data
     }
 
     Column(
@@ -91,33 +85,10 @@ fun CodeScreenUI(db: AppDatabase, lifecycleOwner: LifecycleOwner) {
         Spacer(modifier = Modifier.height(10.dp))
 
         Button(onClick = {
-            if (input.isBlank()) return@Button
-
-            val username = if (usernames.isNotEmpty()) {
-                usernames[Random.nextInt(usernames.size)]
-            } else {
-                "user_001"
-            }
-
-            lifecycleOwner.lifecycleScope.launch {
-                val id = withContext(Dispatchers.IO) {
-                    db.postDao().insertPost(
-                        Post(
-                            userId = username,
-                            content = input,
-                            type = "code",
-                            imageUrl = null
-                        )
-                    ).toInt()
-                }
-
-                posts = listOf(
-                    Post(id, username, input, "code", null)
-                ) + posts
-
+            viewModel.addPost("code", input) {
+                posts = viewModel.posts
                 input = ""
             }
-
         }) {
             Text("Post Code")
         }
@@ -126,23 +97,21 @@ fun CodeScreenUI(db: AppDatabase, lifecycleOwner: LifecycleOwner) {
 
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(posts) { post ->
-                CodePostItem(post, db, lifecycleOwner)
+                CodePostItem(post, viewModel)
             }
         }
     }
 }
 
 @Composable
-fun CodePostItem(post: Post, db: AppDatabase, lifecycleOwner: LifecycleOwner) {
+fun CodePostItem(post: Post, viewModel: MainViewModel) {
 
     var responses by remember { mutableStateOf(listOf<Response>()) }
     var expanded by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
 
     LaunchedEffect(post.id) {
-        responses = withContext(Dispatchers.IO) {
-            db.postDao().getResponsesForPost(post.id)
-        }
+        responses = viewModel.getResponses(post.id)
     }
 
     Column(
@@ -180,29 +149,14 @@ fun CodePostItem(post: Post, db: AppDatabase, lifecycleOwner: LifecycleOwner) {
             )
 
             Button(onClick = {
-                if (input.isBlank()) return@Button
-
-                lifecycleOwner.lifecycleScope.launch {
-
-                    withContext(Dispatchers.IO) {
-                        db.postDao().insertResponse(
-                            Response(
-                                postId = post.id,
-                                userId = "user_001",
-                                content = input
-                            )
-                        )
-                    }
-
+                viewModel.addResponse(post.id, input) {
                     responses = responses + Response(
                         postId = post.id,
-                        userId = "user_001",
+                        userId = viewModel.currentUser,
                         content = input
                     )
-
                     input = ""
                 }
-
             }) {
                 Text("Send")
             }
