@@ -63,10 +63,10 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="12dp"
-            android:backgroundTint="#666666"
+            android:backgroundTint="@color/brand_purple_button"
             android:text="CONFIRM"
             android:textAllCaps="true"
-            android:textColor="#FFFFFF" />
+            android:textColor="@color/white" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -83,9 +83,8 @@
             android:clickable="true"
             android:focusable="true"
             android:text="Sign Up"
-            android:textColor="@color/primary_text"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textColor="@color/secondary_text"
+            android:textSize="16sp" />
 
     </LinearLayout>
 </ScrollView>

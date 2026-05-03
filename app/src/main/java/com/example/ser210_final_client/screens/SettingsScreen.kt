@@ -11,19 +11,27 @@ import android.widget.Switch
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
 import com.example.ser210_final_client.R
-import com.example.ser210_final_client.util.SessionPrefs
+import com.example.ser210_final_client.model.SettingsViewModel
 
 class SettingsScreen : Fragment() {
+
+    private lateinit var settingsViewModel: SettingsViewModel
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        settingsViewModel = ViewModelProvider(
+            requireActivity(),
+            ViewModelProvider.AndroidViewModelFactory.getInstance(requireActivity().application)
+        )[SettingsViewModel::class.java]
+
         val view = inflater.inflate(R.layout.fragment_settings, container, false)
         val lightModeSwitch = view.findViewById<Switch>(R.id.lightModeSwitch)
         val logoutButton = view.findViewById<ImageButton>(R.id.logoutButton)
-        view.findViewById<TextView>(R.id.settingsLoggedInAsText).text =
-            "Logged in as ${SessionPrefs.displayName(requireContext())}"
+        view.findViewById<TextView>(R.id.settingsLoggedInAsText).text = settingsViewModel.loggedInLine()
         val isNightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
         lightModeSwitch.isChecked = !isNightMode
@@ -38,8 +46,7 @@ class SettingsScreen : Fragment() {
         }
 
         logoutButton.setOnClickListener {
-            SessionPrefs.clearSession(requireContext())
-
+            settingsViewModel.clearSession()
             startActivity(Intent(requireContext(), LoginActivity::class.java))
             requireActivity().finish()
         }

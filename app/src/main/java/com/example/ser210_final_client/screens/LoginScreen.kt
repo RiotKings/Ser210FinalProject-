@@ -7,22 +7,26 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModelProvider
 import com.example.ser210_final_client.MainActivity
 import com.example.ser210_final_client.R
-import com.example.ser210_final_client.data.api.ApiInterface
 import com.example.ser210_final_client.data.database.AppDatabase
-import com.example.ser210_final_client.util.PasswordHasher
-import com.example.ser210_final_client.util.SessionPrefs
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.example.ser210_final_client.model.AuthViewModel
+import com.example.ser210_final_client.model.AuthViewModelFactory
 
 class LoginActivity : AppCompatActivity() {
+
+    private lateinit var authViewModel: AuthViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
+
+        val db = AppDatabase.getInstance(applicationContext)
+        authViewModel = ViewModelProvider(
+            this,
+            AuthViewModelFactory(application, db)
+        )[AuthViewModel::class.java]
 
         val confirmButton = findViewById<Button>(R.id.loginConfirmButton)
         val signUpText = findViewById<TextView>(R.id.loginSignUpText)
@@ -37,67 +41,18 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            lifecycleScope.launch {
-                val authorLabel = withContext(Dispatchers.IO) { resolveLoginLabel(username, password) }
-                if (authorLabel == null) {
-                    Toast.makeText(
-                        this@LoginActivity,
-                        "Invalid username or password",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    return@launch
+            authViewModel.login(username, password) { ok ->
+                if (!ok) {
+                    Toast.makeText(this, "Invalid username or password", Toast.LENGTH_SHORT).show()
+                } else {
+                    startActivity(Intent(this, MainActivity::class.java).putExtra("from_auth_flow", true))
+                    finish()
                 }
-
-                // Find the index of the logged in user
-                val allUsers = ApiInterface.create().getUsers().body()?.results.orEmpty()
-                val userIndex = allUsers.indexOfFirst {
-                    it.login.username.equals(username, ignoreCase = true)
-                }.coerceAtLeast(0)
-
-                getSharedPreferences(SessionPrefs.PREFS_NAME, MODE_PRIVATE).edit()
-                    .putBoolean(SessionPrefs.KEY_LOGGED_IN, true)
-                    .putString(SessionPrefs.KEY_DISPLAY_NAME, authorLabel)
-                    .putInt(SessionPrefs.KEY_USER_INDEX, userIndex)
-                    .remove(SessionPrefs.KEY_PROFILE_IMAGE) // clear old cached image
-                    .apply()
-
-                startActivity(Intent(this@LoginActivity, MainActivity::class.java).putExtra("from_auth_flow", true))
-                finish()
             }
         }
 
         signUpText.setOnClickListener {
             startActivity(Intent(this, SignupActivity::class.java))
-        }
-    }
-
-    private suspend fun resolveLoginLabel(username: String, password: String): String? {
-        val db = AppDatabase.getInstance(applicationContext)
-        val local = db.userAccountDao().findByUsernameIgnoreCase(username.trim())
-        if (local != null) {
-            return if (PasswordHasher.verify(local.username, password, local.passwordHash)) {
-                local.username
-            } else {
-                null
-            }
-        }
-        return fetchApiLoginLabel(username, password)
-    }
-
-    private suspend fun fetchApiLoginLabel(username: String, password: String): String? {
-        return try {
-            val response = ApiInterface.create().getUsers()
-            val match = response.body()?.results?.orEmpty()?.find {
-                it.login.username.equals(username, ignoreCase = true) &&
-                    it.login.password == password
-            }
-            match?.let {
-                val u = it.login.username.trim()
-                val f = it.name.first.trim()
-                u.ifEmpty { f }.ifEmpty { null }
-            }
-        } catch (_: Exception) {
-            null
         }
     }
 }

@@ -9,15 +9,13 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModelProvider
 import com.example.ser210_final_client.R
 import com.example.ser210_final_client.data.database.AppDatabase
-import com.example.ser210_final_client.data.database.Post
-import com.example.ser210_final_client.data.database.Response
+import com.example.ser210_final_client.model.QaViewModel
+import com.example.ser210_final_client.model.QaViewModelFactory
+import com.example.ser210_final_client.model.QuestionRow
 import com.example.ser210_final_client.util.SessionPrefs
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class Q_AScreen : Fragment() {
     private data class QuestionPost(
@@ -30,6 +28,7 @@ class Q_AScreen : Fragment() {
 
     private val questionPosts = mutableListOf<QuestionPost>()
 
+    private lateinit var viewModel: QaViewModel
     private lateinit var postQuestionButton: Button
     private lateinit var postQuestionNowButton: Button
     private lateinit var cancelQuestionButton: Button
@@ -37,12 +36,16 @@ class Q_AScreen : Fragment() {
     private lateinit var composerContainer: LinearLayout
     private lateinit var feedContainer: LinearLayout
 
-    private val db by lazy { AppDatabase.getInstance(requireContext().applicationContext) }
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        val db = AppDatabase.getInstance(requireContext().applicationContext)
+        viewModel = ViewModelProvider(
+            requireActivity(),
+            QaViewModelFactory(db)
+        )[QaViewModel::class.java]
+
         val view = inflater.inflate(R.layout.fragment_question, container, false)
         postQuestionButton = view.findViewById(R.id.postQuestionButton)
         postQuestionNowButton = view.findViewById(R.id.postQuestionNowButton)
@@ -66,7 +69,13 @@ class Q_AScreen : Fragment() {
             val text = questionInput.text.toString().trim()
             if (text.isBlank()) return@setOnClickListener
 
-            saveQuestionPost(SessionPrefs.displayName(requireContext()), text)
+            val username = SessionPrefs.displayName(requireContext())
+            viewModel.insertQuestion(username, text) { insertedId ->
+                questionPosts.add(0, QuestionPost(id = insertedId, username = username, question = text))
+                clearComposer()
+                composerContainer.visibility = View.GONE
+                renderQuestions()
+            }
         }
 
         return view
@@ -77,47 +86,20 @@ class Q_AScreen : Fragment() {
     }
 
     private fun loadQuestionsFromDatabase() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            val loaded = withContext(Dispatchers.IO) {
-                val posts = db.postDao().getAllPosts()
-                    .filter { it.type == "question" }
-                    .sortedByDescending { it.id }
-
-                posts.map { post ->
-                    val responses = db.postDao().getResponsesForPost(post.id).map { it.content }.toMutableList()
-                    QuestionPost(
-                        id = post.id,
-                        username = post.userId,
-                        question = post.content,
-                        responses = responses
-                    )
-                }
-            }
-
+        viewModel.loadQuestions { rows ->
             questionPosts.clear()
-            questionPosts.addAll(loaded)
+            questionPosts.addAll(rows.map { rowToQuestionPost(it) })
             renderQuestions()
         }
     }
 
-    private fun saveQuestionPost(username: String, question: String) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            val insertedId = withContext(Dispatchers.IO) {
-                db.postDao().insertPost(
-                    Post(
-                        userId = username,
-                        content = question,
-                        type = "question",
-                        imageUrl = null
-                    )
-                ).toInt()
-            }
-
-            questionPosts.add(0, QuestionPost(id = insertedId, username = username, question = question))
-            clearComposer()
-            composerContainer.visibility = View.GONE
-            renderQuestions()
-        }
+    private fun rowToQuestionPost(row: QuestionRow): QuestionPost {
+        return QuestionPost(
+            id = row.id,
+            username = row.username,
+            question = row.question,
+            responses = row.responseTexts.toMutableList()
+        )
     }
 
     private fun renderQuestions() {
@@ -146,17 +128,8 @@ class Q_AScreen : Fragment() {
             sendButton.setOnClickListener {
                 val text = responseInput.text.toString().trim()
                 if (text.isBlank()) return@setOnClickListener
-
-                viewLifecycleOwner.lifecycleScope.launch {
-                    withContext(Dispatchers.IO) {
-                        db.postDao().insertResponse(
-                            Response(
-                                postId = post.id,
-                                userId = SessionPrefs.displayName(requireContext()),
-                                content = text
-                            )
-                        )
-                    }
+                val author = SessionPrefs.displayName(requireContext())
+                viewModel.insertQuestionResponse(post.id, author, text) {
                     post.responses.add(text)
                     responseInput.setText("")
                     renderQuestions()

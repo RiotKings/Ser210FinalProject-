@@ -14,15 +14,13 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModelProvider
 import com.example.ser210_final_client.R
 import com.example.ser210_final_client.data.database.AppDatabase
-import com.example.ser210_final_client.data.database.Post
-import com.example.ser210_final_client.data.database.Response
+import com.example.ser210_final_client.model.MemeRow
+import com.example.ser210_final_client.model.MemesViewModel
+import com.example.ser210_final_client.model.MemesViewModelFactory
 import com.example.ser210_final_client.util.SessionPrefs
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MemesScreen : Fragment() {
     private data class MemePost(
@@ -34,9 +32,9 @@ class MemesScreen : Fragment() {
         var responsesExpanded: Boolean = false
     )
 
-    private var nextPostId = 1
     private val memePosts = mutableListOf<MemePost>()
 
+    private lateinit var viewModel: MemesViewModel
     private lateinit var memeSpinner: Spinner
     private lateinit var captionInput: EditText
     private lateinit var postButton: Button
@@ -45,12 +43,17 @@ class MemesScreen : Fragment() {
     private lateinit var postComposerContainer: LinearLayout
     private lateinit var feedContainer: LinearLayout
     private var memeFileNames: List<String> = emptyList()
-    private val db by lazy { AppDatabase.getInstance(requireContext().applicationContext) }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        val db = AppDatabase.getInstance(requireContext().applicationContext)
+        viewModel = ViewModelProvider(
+            requireActivity(),
+            MemesViewModelFactory(db)
+        )[MemesViewModel::class.java]
+
         val view = inflater.inflate(R.layout.fragment_memes, container, false)
         memeSpinner = view.findViewById(R.id.memePickerSpinner)
         captionInput = view.findViewById(R.id.memeCaptionInput)
@@ -100,48 +103,26 @@ class MemesScreen : Fragment() {
     }
 
     private fun loadMemesFromDatabase() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            val loadedPosts = withContext(Dispatchers.IO) {
-                val allPosts = db.postDao().getAllPosts()
-                    .filter { it.type == "meme" }
-                    .sortedByDescending { it.id }
-
-                allPosts.map { post ->
-                    val responses = db.postDao().getResponsesForPost(post.id).map { it.content }.toMutableList()
-                    MemePost(
-                        id = post.id,
-                        username = post.userId,
-                        memeFileName = post.imageUrl ?: "",
-                        caption = post.content,
-                        responses = responses
-                    )
-                }.filter { it.memeFileName.isNotBlank() }
-            }
-
+        viewModel.loadMemes { rows ->
             memePosts.clear()
-            memePosts.addAll(loadedPosts)
-            nextPostId = (memePosts.maxOfOrNull { it.id } ?: 0) + 1
+            memePosts.addAll(rows.map { rowToMemePost(it) })
             renderPosts()
         }
     }
 
-    private fun saveMemePost(post: MemePost) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            val insertedId = withContext(Dispatchers.IO) {
-                db.postDao().insertPost(
-                    Post(
-                        userId = post.username,
-                        content = post.caption,
-                        type = "meme",
-                        imageUrl = post.memeFileName
-                    )
-                ).toInt()
-            }
+    private fun rowToMemePost(row: MemeRow): MemePost {
+        return MemePost(
+            id = row.id,
+            username = row.username,
+            memeFileName = row.memeFileName,
+            caption = row.caption,
+            responses = row.responseTexts.toMutableList()
+        )
+    }
 
-            memePosts.add(
-                0,
-                post.copy(id = insertedId)
-            )
+    private fun saveMemePost(post: MemePost) {
+        viewModel.insertMeme(post.username, post.caption, post.memeFileName) { insertedId ->
+            memePosts.add(0, post.copy(id = insertedId))
             clearComposer()
             postComposerContainer.visibility = View.GONE
             renderPosts()
@@ -211,16 +192,8 @@ class MemesScreen : Fragment() {
             sendButton.setOnClickListener {
                 val text = responseInput.text.toString()
                 if (text.isBlank()) return@setOnClickListener
-                viewLifecycleOwner.lifecycleScope.launch {
-                    withContext(Dispatchers.IO) {
-                        db.postDao().insertResponse(
-                            Response(
-                                postId = post.id,
-                                userId = SessionPrefs.displayName(requireContext()),
-                                content = text
-                            )
-                        )
-                    }
+                val author = SessionPrefs.displayName(requireContext())
+                viewModel.insertMemeResponse(post.id, author, text) {
                     post.responses.add(text)
                     responseInput.setText("")
                     renderPosts()
