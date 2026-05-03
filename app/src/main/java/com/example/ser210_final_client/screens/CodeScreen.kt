@@ -124,7 +124,7 @@ fun CodeScreenUI(db: AppDatabase, lifecycleOwner: LifecycleOwner) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        LazyColumn {
+        LazyColumn(modifier = Modifier.weight(1f)) {
             items(posts) { post ->
                 CodePostItem(post, db, lifecycleOwner)
             }

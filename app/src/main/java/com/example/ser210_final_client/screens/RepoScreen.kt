@@ -96,7 +96,10 @@ fun RepoScreenContent() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             items(repos) { repo ->
                 RepoCard(repo = repo)
             }

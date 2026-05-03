@@ -59,7 +59,6 @@ fun ChatScreenUI() {
             .background(Color.Black)
             .padding(16.dp)
     ) {
-
         Text(
             text = "Chat w/ Grammers",
             color = Color.White,
@@ -67,7 +66,9 @@ fun ChatScreenUI() {
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        LazyColumn {
+        LazyColumn(
+            modifier = Modifier.weight(1f)
+        ) {
             items(usernames) { name ->
                 ChatUserItem(name)
             }
